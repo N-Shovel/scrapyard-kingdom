@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrapyard Kingdom</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- ===== In-game HUD ===== -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+    <div id="hitmarker"></div>
+
+    <div id="top-bar">
+      <div id="wave-label">ROUND 1</div>
+      <div id="phase-label" class="build">PREPARATION</div>
+      <div id="timer-label"></div>
+      <div id="prep-buttons" class="hidden">
+        <button id="shop-btn" class="alt">WORKSHOP <kbd>U</kbd></button>
+        <button id="ready-btn">READY: START ROUND <kbd>G</kbd></button>
+      </div>
+    </div>
+
+    <canvas id="minimap" class="hidden"></canvas>
+    <div id="map-legend" class="panel hidden">
+      <span><i class="lg route"></i>Enemy route</span>
+      <span><i class="lg brute"></i>Brute route</span>
+      <span><i class="lg air"></i>Drone flight path</span>
+      <span><i class="lg lock"></i>Wall under siege</span>
+      <span><i class="dot enemy"></i>Raider</span>
+      <span><i class="dot mutant"></i>Mutant</span>
+      <span><i class="dot brute"></i>Brute</span>
+      <span><i class="tri"></i>Drone</span>
+      <span><i class="sq wall"></i>Car wreck</span>
+      <span><i class="sq cont"></i>Container</span>
+      <span><i class="dot turret"></i>Turret</span>
+      <span><i class="dia"></i>Flak</span>
+      <span><i class="sq tar"></i>Tar pit</span>
+      <span><i class="dot mine"></i>Mine</span>
+      <span><i class="sq scrap"></i>Scrap drop</span>
+      <span>Press <kbd>M</kbd> to close</span>
+    </div>
+
+    <div id="left-panel" class="panel">
+      <div class="row">
+        <div class="label">STASH</div>
+        <div class="bar stash"><div id="stash-fill"></div></div>
+        <div id="stash-text" class="small"></div>
+      </div>
+      <div class="row">
+        <div class="label">HEALTH</div>
+        <div class="bar hp"><div id="hp-fill"></div></div>
+        <div id="hp-text" class="small"></div>
+      </div>
+      <div id="medkit-row" class="small">MEDKITS <b id="medkit-count">0</b> · press <kbd>H</kbd> to heal</div>
+    </div>
+
+    <div id="scrap-panel" class="panel"><span class="gear">⚙</span><span id="scrap-text">0</span><span class="small">SCRAP</span></div>
+
+    <div id="weapon-panel" class="panel">
+      <div id="weapon-name"></div>
+      <div id="ammo-text"></div>
+      <div id="fuel-row">
+        <span class="label">TORCH FUEL</span>
+        <div class="bar fuel"><div id="fuel-fill"></div></div>
+      </div>
+      <div id="view-label"></div>
+    </div>
+
+    <div id="prep-help" class="panel hidden">
+      <b>PREPARATION</b> · <kbd>LMB</kbd> place · <kbd>RMB</kbd> pick up · <kbd>1-7</kbd> gear · <kbd>8</kbd> repair · <kbd>U</kbd> workshop ·
+      <kbd>F</kbd> refuel · <kbd>WASD</kbd> pan · <kbd>wheel</kbd> zoom
+    </div>
+    <div id="build-mode-label" class="hidden">BUILD MODE · press <kbd>B</kbd> to exit</div>
+    <div id="hotbar"></div>
+    <div id="prompt"></div>
+    <div id="messages"></div>
+
+    <div id="build-hint" class="panel hidden">
+      <div><span class="swatch orange"></span>Next round's route</div>
+      <div><span class="swatch purple"></span>Brute route</div>
+      <div><span class="swatch red"></span>They'll smash a wall here</div>
+      <div><span class="swatch blue"></span>Drone flight path</div>
+      <div><span class="swatch grey"></span>Other gates (not this round)</div>
+      <div><span class="swatch beam"></span>Active gates</div>
+    </div>
+
+    <div id="banner"><div id="banner-title"></div><div id="banner-sub"></div></div>
+    <div id="damage-vignette"></div>
+    <div id="respawn" class="hidden"></div>
+  </div>
+
+  <!-- ===== Title screen ===== -->
+  <div id="menu" class="overlay">
+    <div class="card">
+      <h1>SCRAPYARD<br><span>KINGDOM</span></h1>
+      <p class="tag">Hold the junkyard. Build the maze. Fix what they break.</p>
+      <div class="controls">
+        <div class="head">Preparation (top-down)</div>
+        <div><kbd>LMB</kbd> place gear · <kbd>RMB</kbd> pick up · <kbd>8</kbd> repair · <kbd>F</kbd> refuel · <kbd>U</kbd> workshop · <kbd>G</kbd> ready</div>
+        <div class="head">Combat (until every enemy is dead)</div>
+        <div><kbd>W A S D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>V</kbd> 1st / 3rd person</div>
+        <div><kbd>LMB</kbd> shoot / use · <kbd>R</kbd> reload · <kbd>1</kbd> Shotgun · <kbd>2</kbd> Repair Torch</div>
+        <div><kbd>B</kbd> build mode · <kbd>M</kbd> full map · <kbd>H</kbd> medkit · <kbd>Esc</kbd> pause</div>
+        <div>At the Stash: <kbd>E</kbd> workshop (upgrades, healing) · hold <kbd>F</kbd> refuel torch</div>
+      </div>
+      <ul class="tips">
+        <li>You get <b>3 minutes</b> to prepare. The fight lasts until <b>every enemy is dead</b>. Afterwards everything you placed <b>returns to your inventory</b> and the junkyard <b>changes shape</b>.</li>
+        <li>Walls reroute enemies. If smashing a wall is quicker, that gate <b>locks onto the wall</b> until it falls.</li>
+        <li>Raiders steal scrap, Mutants hunt <b>you</b>, Brutes bash walls, and <b>Scrap Drones</b> fly over everything.</li>
+        <li>Junk Turrets hit ground only and need line of sight. <b>Flak Cannons</b> hit air only.</li>
+        <li>Enemies get <b>tougher every round</b>. Spend scrap at the <b>Workshop</b> on weapon, armor and health upgrades.</li>
+        <li>Traps: <b>Spike Trap</b> stabs, <b>Tar Pit</b> slows, <b>Scrap Mine</b> explodes once. All of them wear out.</li>
+        <li>The Repair Torch fixes your gear (not the Stash) and burns <b>fuel</b>. Refueling costs scrap.</li>
+      </ul>
+      <button id="start-btn">ENTER THE YARD</button>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="card small-card"><h2 id="pause-title">PAUSED</h2><p id="pause-sub">Click to resume</p></div>
+  </div>
+
+  <!-- ===== Base Workshop (upgrades + healing) ===== -->
+  <div id="shop" class="overlay hidden">
+    <div class="card shop-card">
+      <h2>BASE WORKSHOP</h2>
+      <p class="tag">Spend scrap on gear. You have <b id="shop-scrap">0</b> ⚙</p>
+      <div id="shop-grid"></div>
+      <button id="shop-close">BACK TO WORK</button>
+    </div>
+  </div>
+
+  <div id="gameover" class="overlay hidden">
+    <div class="card small-card">
+      <h2>STASH LOST</h2>
+      <p id="go-reason"></p>
+      <p id="go-stats" class="stats"></p>
+      <button id="restart-btn">TRY AGAIN</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/grid.js"></script>
+  <script src="js/effects.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/structures.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/pickups.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/weapons.js"></script>
+  <script src="js/build.js"></script>
+  <script src="js/topview.js"></script>
+  <script src="js/waves.js"></script>
+  <script src="js/minimap.js"></script>
+  <script src="js/upgrades.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
