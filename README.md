@@ -2,7 +2,10 @@
 
 A 3D action tower defense game in plain JavaScript, HTML and CSS, rendered with [Three.js](https://threejs.org/) from a CDN. No build step.
 
+**Play it online:** https://n-shovel.github.io/scrapyard-kingdom/
+
 ## Run it
+Play in the browser at the link above (hosted on GitHub Pages from the `main` branch), or run it locally:
 Double-click `index.html`. It needs an internet connection to load Three.js and the fonts.
 The VS Code **Live Server** extension also works.
 
