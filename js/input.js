@@ -2,7 +2,8 @@
 SK.Input = {
   keys: {},
   pressed: {},
-  mouse: { left: false, right: false, leftPressed: false, rightPressed: false, dx: 0, dy: 0, wheel: 0,
+  // rightClick = RMB released without dragging (a drag pans the top-down view instead)
+  mouse: { left: false, right: false, leftPressed: false, rightPressed: false, rightClick: false, dx: 0, dy: 0, wheel: 0,
            x: window.innerWidth / 2, y: window.innerHeight / 2 },
   locked: false,
   canvas: null,
@@ -25,11 +26,18 @@ SK.Input = {
     window.addEventListener('mousedown', (e) => {
       if (!onGame(e)) return;
       if (e.button === 0) { this.mouse.left = true; this.mouse.leftPressed = true; }
-      if (e.button === 2) { this.mouse.right = true; this.mouse.rightPressed = true; }
+      if (e.button === 2) {
+        this.mouse.right = true; this.mouse.rightPressed = true;
+        this.rightStart = { x: e.clientX, y: e.clientY };
+      }
     });
     window.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.mouse.left = false;
-      if (e.button === 2) this.mouse.right = false;
+      if (e.button === 2 && this.mouse.right) {
+        this.mouse.right = false;
+        const s = this.rightStart;
+        if (this.locked || !s || Math.hypot(e.clientX - s.x, e.clientY - s.y) < 6) this.mouse.rightClick = true;
+      }
     });
     window.addEventListener('mousemove', (e) => {
       this.mouse.x = e.clientX;
@@ -64,7 +72,7 @@ SK.Input = {
 
   endFrame() {
     this.pressed = {};
-    this.mouse.leftPressed = this.mouse.rightPressed = false;
+    this.mouse.leftPressed = this.mouse.rightPressed = this.mouse.rightClick = false;
     this.mouse.dx = this.mouse.dy = 0;
     this.mouse.wheel = 0;
   }

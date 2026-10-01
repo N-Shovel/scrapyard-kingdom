@@ -5,7 +5,8 @@ SK.CONFIG = {
   GRID: 40,          // map is GRID x GRID cells
   CELL: 2,           // world units per cell
   START_SCRAP: 120,
-  PREP_TIME: 180,    // 3 minutes of top-down preparation between rounds
+  PREP_TIME: 180,
+  COUNTDOWN: 5,      // seconds of "new wave starting in…" after READY (or at the end of prep)    // 3 minutes of top-down preparation between rounds
   // The fight itself has no time limit: the round ends once every enemy has spawned and been killed.
 
   // Enemies per round = base + perRound * roundNumber (see Waves.composition).

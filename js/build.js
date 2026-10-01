@@ -163,6 +163,9 @@
       if (I.mouse.wheel && !prep) this.cycle(I.mouse.wheel);
       if (prep && (I.justPressed('KeyQ') || I.justPressed('KeyE'))) this.cycle(I.justPressed('KeyE') ? 1 : -1);
 
+      const pickUp = prep ? I.mouse.rightClick : I.mouse.rightPressed;
+      const lmb = I.mouse.left && !(prep && I.down('Space')); // Space = grab the map, not build
+
       this.target = this.findTarget();
       const t = this.target;
       if (!t) { this.ghost.visible = false; return; }
@@ -171,17 +174,17 @@
       if (this.selected === 'repair') {
         this.ghost.visible = !!t.struct;
         if (t.struct) { this.showGhost(t, 0x66e0ff); this.showRange(t); }
-        if (t.struct && I.mouse.left) SK.Weapons.repairStruct(t.struct, dt, t.point, null);
-        if (I.mouse.rightPressed) this.pickUp();
+        if (t.struct && lmb) SK.Weapons.repairStruct(t.struct, dt, t.point, null);
+        if (pickUp) this.pickUp();
         return;
       }
 
       this.showGhost(t, t.struct ? 0xff8844 : t.valid ? 0x44ff66 : 0xff3b30);
       this.showRange(t);
       const k = SK.Grid.idx(t.i, t.j);
-      if (I.mouse.left && (I.mouse.leftPressed || k !== this.lastPlaced)) this.place();
-      if (!I.mouse.left) this.lastPlaced = -1;
-      if (I.justPressed('KeyX') || I.mouse.rightPressed) this.pickUp();
+      if (lmb && (I.mouse.leftPressed || k !== this.lastPlaced)) this.place();
+      if (!lmb) this.lastPlaced = -1;
+      if (I.justPressed('KeyX') || pickUp) this.pickUp();
     },
 
     showGhost(t, color) {

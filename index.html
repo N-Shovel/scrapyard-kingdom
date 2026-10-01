@@ -23,7 +23,12 @@
       <div id="timer-label"></div>
       <div id="prep-buttons" class="hidden">
         <button id="shop-btn" class="alt">WORKSHOP <kbd>U</kbd></button>
-        <button id="ready-btn">READY: START ROUND <kbd>G</kbd></button>
+        <button id="ready-btn"><span id="ready-label">READY: START ROUND</span> <kbd>G</kbd></button>
+      </div>
+      <div id="announce" class="hidden">
+        <div id="announce-title"></div>
+        <div id="announce-num"></div>
+        <div id="announce-sub"></div>
       </div>
     </div>
 
@@ -75,7 +80,7 @@
 
     <div id="prep-help" class="panel hidden">
       <b>PREPARATION</b> · <kbd>LMB</kbd> place · <kbd>RMB</kbd> pick up · <kbd>1-7</kbd> gear · <kbd>8</kbd> repair · <kbd>U</kbd> workshop ·
-      <kbd>F</kbd> refuel · <kbd>WASD</kbd> pan · <kbd>wheel</kbd> zoom
+      <kbd>F</kbd> refuel · <kbd>WASD</kbd> / drag <kbd>RMB</kbd> / hold <kbd>Space</kbd> pan · <kbd>wheel</kbd> zoom
     </div>
     <div id="build-mode-label" class="hidden">BUILD MODE · press <kbd>B</kbd> to exit</div>
     <div id="hotbar"></div>
@@ -103,7 +108,7 @@
       <p class="tag">Hold the junkyard. Build the maze. Fix what they break.</p>
       <div class="controls">
         <div class="head">Preparation (top-down)</div>
-        <div><kbd>LMB</kbd> place gear · <kbd>RMB</kbd> pick up · <kbd>8</kbd> repair · <kbd>F</kbd> refuel · <kbd>U</kbd> workshop · <kbd>G</kbd> ready</div>
+        <div><kbd>LMB</kbd> place gear · <kbd>RMB</kbd> pick up · drag <kbd>RMB</kbd> / <kbd>Space</kbd> pan · <kbd>8</kbd> repair · <kbd>F</kbd> refuel · <kbd>U</kbd> workshop · <kbd>G</kbd> ready</div>
         <div class="head">Combat (until every enemy is dead)</div>
         <div><kbd>W A S D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · <kbd>V</kbd> 1st / 3rd person</div>
         <div><kbd>LMB</kbd> shoot / use · <kbd>R</kbd> reload · <kbd>1</kbd> Shotgun · <kbd>2</kbd> Repair Torch</div>

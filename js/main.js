@@ -185,7 +185,7 @@
       // top-down planning: place / pick up / repair / refuel / shop
       if (I.justPressed('KeyU')) SK.Upgrades.toggle();
       if (SK.Upgrades.open && I.justPressed('Escape')) SK.Upgrades.close();
-      if (!SK.Upgrades.open && (I.justPressed('KeyG') || I.justPressed('Enter'))) SK.Waves.startRound();
+      if (!SK.Upgrades.open && (I.justPressed('KeyG') || I.justPressed('Enter'))) SK.Waves.ready();
       if (Game.state === 'prep') {
         SK.TopView.update(dt);
         if (!SK.Upgrades.open) SK.Build.update(dt);

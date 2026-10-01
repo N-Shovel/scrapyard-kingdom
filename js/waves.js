@@ -81,7 +81,7 @@
     speedMul() { return Math.min(C.SCALING.speedMax, 1 + C.SCALING.speed * (Math.max(1, this.round) - 1)); },
 
     // ---- phase changes ----
-    beginPrep() {
+    beginPrep(quiet) {
       this.phase = 'prep';
       this.timer = C.PREP_TIME;
       SK.Game.state = 'prep';
@@ -90,17 +90,25 @@
       if (document.pointerLockElement) document.exitPointerLock();
       SK.TopView.enter();
       SK.HUD.showPause(false);
-      SK.HUD.banner(`ROUND ${this.round + 1} · PREPARE`,
+      if (!quiet) SK.HUD.banner(`ROUND ${this.round + 1} · PREPARE`,
         `Enemies will come from ${this.nextGates.map((g) => g.name).join(', ')}`);
     },
 
-    // Called by the READY button / G key, or when the prep timer runs out.
+    // READY button / G key: start a short countdown; pressing again during it starts right away.
+    ready() {
+      if (this.phase !== 'prep') return;
+      if (this.timer > C.COUNTDOWN) this.timer = C.COUNTDOWN;
+      else this.startRound();
+    },
+
+    // Called when the prep timer runs out (or READY is pressed during the countdown).
     startRound() {
       if (this.phase !== 'prep') return;
       if (SK.Upgrades.open) SK.Upgrades.close();
       this.round++;
       this.phase = 'combat';
       this.timer = 0;
+      SK.HUD.announce(null);
       this.elapsed = 0; // counts up during the fight (no time limit)
       this.activeGates = this.nextGates;
       for (const g of SK.Grid.gates) g.lock = g.bruteLock = null;
@@ -129,9 +137,9 @@
       SK.Player.respawn(true);
       SK.SFX.play('clear');
       this.pickNextGates();
-      this.beginPrep();
-      SK.HUD.banner(`ROUND ${this.round} SURVIVED`,
-        `+${bonus} scrap · ${returned} items returned to inventory · the junkyard has shifted!`);
+      this.beginPrep(true);
+      SK.HUD.announce(`ROUND ${this.round} COMPLETE`, '',
+        `Congratulations! +${bonus} scrap · ${returned} items returned · the junkyard has shifted!`, 6, 'good');
     },
 
     // Once a gate's route has to smash a wall, lock that gate onto that wall until it falls.

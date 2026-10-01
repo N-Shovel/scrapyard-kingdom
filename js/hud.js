@@ -11,7 +11,7 @@ SK.HUD = {
                  'messages', 'view-label', 'damage-vignette', 'respawn', 'hitmarker', 'banner', 'banner-title',
                  'banner-sub', 'weapon-panel', 'build-hint', 'build-mode-label', 'fuel-fill', 'fuel-row',
                  'ready-btn', 'prep-help', 'minimap', 'pause', 'pause-title', 'pause-sub', 'prep-buttons',
-                 'medkit-count'];
+                 'medkit-count', 'announce', 'announce-title', 'announce-num', 'announce-sub', 'ready-label'];
     for (const id of ids) this.el[id] = document.getElementById(id);
     this.renderIcons();
 
@@ -20,7 +20,7 @@ SK.HUD = {
       const slot = e.target.closest('.slot');
       if (slot && slot.dataset.idx !== undefined) SK.Build.select(+slot.dataset.idx);
     });
-    this.el['ready-btn'].addEventListener('click', () => SK.Waves.startRound());
+    this.el['ready-btn'].addEventListener('click', () => SK.Waves.ready());
     document.getElementById('shop-btn').addEventListener('click', () => SK.Upgrades.show());
   },
 
@@ -42,6 +42,40 @@ SK.HUD = {
     while (box.children.length > 5) box.removeChild(box.firstChild);
     setTimeout(() => d.classList.add('fade'), dur * 1000);
     setTimeout(() => d.remove(), dur * 1000 + 500);
+  },
+
+  // Announcement under the round header. announce(null) hides it; dur = seconds before it fades (0 = stay).
+  announce(title, num = '', sub = '', dur = 0, cls = '') {
+    const e = this.el, a = e.announce;
+    clearTimeout(this.announceTimer);
+    clearTimeout(this.announceHide);
+    if (!title) { a.classList.add('hidden'); this.announceKind = ''; return; }
+    a.className = cls;
+    this.el.banner.classList.remove('show'); // don't stack on the big centre banner
+    e['announce-title'].textContent = title;
+    e['announce-sub'].textContent = sub;
+    const n = e['announce-num'];
+    n.textContent = num;
+    n.classList.toggle('hidden', num === '');
+    n.classList.remove('tick');
+    void n.offsetWidth; // restart the tick animation
+    if (num !== '') n.classList.add('tick');
+    this.announceKind = cls || 'info';
+    if (dur) {
+      this.announceTimer = setTimeout(() => a.classList.add('fade'), dur * 1000);
+      this.announceHide = setTimeout(() => this.announce(null), dur * 1000 + 500);
+    }
+  },
+
+  // "New wave starting in 5 4 3 2 1" during the last seconds of preparation.
+  updateCountdown(W) {
+    const counting = W.phase === 'prep' && W.timer <= SK.CONFIG.COUNTDOWN;
+    const n = counting ? Math.max(1, Math.ceil(W.timer)) : 0;
+    if (n === this.countNum) return;
+    this.countNum = n;
+    this.el['ready-label'].textContent = counting ? 'START NOW' : 'READY: START ROUND';
+    if (counting) this.announce('NEW WAVE STARTING IN', String(n), '', 0, 'count');
+    else if (this.announceKind === 'count') this.announce(null);
   },
 
   banner(title, sub) {
@@ -180,6 +214,7 @@ SK.HUD = {
       e['timer-label'].innerHTML = `Enemies left: <b class="clock">${W.remaining()}</b> · fight time ${this.fmtTime(W.elapsed)}`;
     }
     e['prep-buttons'].classList.toggle('hidden', !prep);
+    this.updateCountdown(W);
     e['medkit-count'].textContent = SK.Upgrades.medkits;
     e['prep-help'].classList.toggle('hidden', !prep);
     e.minimap.classList.toggle('hidden', prep);
