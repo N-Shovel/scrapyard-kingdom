@@ -43,6 +43,34 @@ SK.CONFIG = {
     regenDelay: 5, regenRate: 8, respawn: 6
   },
 
+  // Blender models (.glb), loaded by js/assets.js. If one fails to load, the built-in box model is used.
+  //   node:  object to take from the file (skips the rest of the Blender scene)
+  //   turn:  extra Y rotation so the model faces -Z, the game's "forward"
+  //   center: bone to stand over the origin (default: middle of the bounding box)
+  //   hide:  objects not to draw (Blender names)
+  //   clips: { key: { clip, from, to (frames, 24 fps) or poses: [frames to average into a still pose], root } }
+  //          root = bone whose travel is removed (walk in place)
+  MODELS: {
+    player: {
+      file: 'assets/models/characters/player.glb',
+      node: 'WangDadaRig',
+      height: 1.75,
+      turn: Math.PI,
+      center: 'hips',
+      hide: ['Pistol.002'],
+      clips: {
+        walk: { clip: 'WangDada_Walk', from: 1, to: 25, root: 'root' },
+        idle: { clip: 'WangDada_Walk', poses: [7, 19], root: 'root' }, // no idle clip yet: average of the two passing frames
+        run:  { clip: 'WangDada_Walk', from: 1, to: 25, root: 'root', additive: 'idle' } // no run clip yet: exaggerated walk
+      },
+      // procedural body motion (bone names from Blender)
+      bones: { root: 'root', spine: 'spine', chest: 'chest' },
+      runGain: 1.7,     // how much the run exaggerates the walk's stride
+      // the model's own rifle is used as the Scrap Shotgun (measured in the rifle's own coordinates)
+      gun: { node: 'Rifle.002', muzzle: [0.49, -0.385, -0.056], forward: [0.812, -0.581, 0.054], up: [0.573, 0.811, 0.118] }
+    }
+  },
+
   STRUCTURES: {
     wreck:     { name: 'Car Wreck',   cost: 10, hp: 220, blocks: true,  height: 1.4, desc: 'Cheap wall' },
     container: { name: 'Container',   cost: 30, hp: 700, blocks: true,  height: 2.6, desc: 'Heavy wall' },

@@ -2,6 +2,43 @@
 (function () {
   const C = SK.CONFIG, PC = C.PLAYER, U = SK.U;
   const SPAWN = new THREE.Vector3(0, 0, 6);
+  const AXIS_UP = new THREE.Vector3(0, 1, 0), AXIS_RIGHT = new THREE.Vector3(1, 0, 0);
+  const _qa = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THREE.Quaternion();
+
+  // Rotate a bone by `angle` around an axis given in the player's own space (x = right, y = up).
+  function turnBone(bone, axis, angle, body) {
+    if (!angle) return;
+    body.getWorldQuaternion(_qr).invert();
+    bone.parent.getWorldQuaternion(_qp).premultiply(_qr); // parent's rotation relative to the body
+    _qa.setFromAxisAngle(axis, angle);
+    bone.quaternion.premultiply(_qr.copy(_qp).invert().multiply(_qa).multiply(_qp));
+  }
+
+  // First-person copy of the model's rifle: barrel along -Z, muzzle at the front.
+  function firstPersonGun(rifle, def) {
+    const fwd = new THREE.Vector3(...def.forward).normalize();
+    const up = new THREE.Vector3(...def.up);
+    up.addScaledVector(fwd, -up.dot(fwd)).normalize();
+    const back = fwd.clone().negate();
+    const right = new THREE.Vector3().crossVectors(up, back);
+    const mesh = new THREE.Mesh(rifle.geometry, rifle.material);
+    mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, back)).invert();
+    const tip = new THREE.Vector3(...def.muzzle).applyQuaternion(mesh.quaternion);
+    mesh.position.set(-tip.x, -tip.y, -0.8 - tip.z); // barrel on the gun's centre line, muzzle 0.8 ahead
+    const g = new THREE.Group();
+    g.add(mesh);
+    const muzzle = new THREE.Object3D();
+    muzzle.position.set(0, 0, -0.82);
+    g.add(muzzle);
+    return { g, muzzle };
+  }
+
+  function gunMuzzle(rifle, def) {
+    const muzzle = new THREE.Object3D();
+    muzzle.position.set(...def.muzzle);
+    rifle.add(muzzle);
+    return muzzle;
+  }
 
   SK.Player = {
     pos: SPAWN.clone(),
@@ -67,6 +104,88 @@
       g.visible = false;
       this.mesh = g;
       scene.add(g);
+
+      SK.Assets.instance('player')
+        .then((m) => this.useModel(m))
+        .catch((err) => console.warn('Player model not loaded, using the box model.', err));
+    },
+
+    // Swap the box body for the Blender model. The arm groups stay (hidden) so the Repair Torch
+    // still hangs off handR and tilts with the aim; the model's own rifle becomes the Scrap Shotgun.
+    useModel(m) {
+      const g = this.mesh, def = C.MODELS.player;
+      for (const c of [...g.children]) {
+        if (c === this.armR || c === this.armL) c.children.forEach((p) => { if (p !== this.handR) p.visible = false; });
+        else g.remove(c);
+      }
+      g.add(m.object);
+      this.armR.position.set(0.1, 1.22, -0.05);
+      this.handR.position.set(0, -0.42, 0);
+      this.handR.scale.setScalar(0.8);
+
+      const bone = (name) => m.object.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(name));
+      const B = def.bones || {};
+      this.bones = { root: bone(B.root), spine: bone(B.spine), chest: bone(B.chest) };
+      const gun = def.gun && bone(def.gun.node);
+      if (gun) SK.Weapons.swapGun('shotgun', firstPersonGun(gun, def.gun), { g: gun, muzzle: gunMuzzle(gun, def.gun) });
+
+      this.model = m;
+      this.anim = { move: 0, run: 0, legs: 0, dir: 1 };
+      const { walk, idle, run } = m.actions;
+      if (walk) walk.play().setEffectiveWeight(0);
+      if (run) run.play().setEffectiveWeight(0);
+      if (idle) idle.play();
+      m.mixer.update(0);
+    },
+
+    // Model animation:
+    //  - idle / walk / run blended by speed (run = the walk with its motion exaggerated, played faster)
+    //  - the legs turn toward the direction we move (backwards = walk cycle reversed),
+    //    while the upper body keeps facing the aim and the chest leans with the look pitch.
+    animateModel(dt) {
+      const m = this.model, A = this.anim, { walk, idle, run } = m.actions;
+      const ease = (cur, target, rate) => cur + (target - cur) * Math.min(1, dt * rate);
+
+      // movement direction relative to where we face: 0 = forward, +-PI/2 = right / left, PI = back
+      const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
+      const vf = this.vel.x * fx + this.vel.z * fz;
+      const vr = this.vel.x * -fz + this.vel.z * fx;
+      const moving = this.onGround && this.speedNow > 0.4;
+      let legs = 0, dir = A.dir;
+      if (moving) {
+        const ang = Math.atan2(vr, vf);
+        dir = Math.abs(ang) > 1.75 ? -1 : 1;
+        legs = dir > 0 ? ang : ang - Math.PI * Math.sign(ang);
+        legs = U.clamp(legs, -1.3, 1.3);
+      }
+      A.dir = dir;
+      A.legs = ease(A.legs, legs, 10);
+      A.move = ease(A.move, moving ? 1 : 0, 10);
+      A.run = ease(A.run, moving && this.sprinting && dir > 0 ? 1 : 0, 6);
+
+      const gain = C.MODELS.player.runGain || 1.6;
+      if (walk) {
+        walk.setEffectiveWeight(A.move * (1 - A.run));
+        if (idle) idle.setEffectiveWeight(1 - A.move * (1 - A.run));
+        if (run) run.setEffectiveWeight(A.move * A.run * gain);
+        // stride cadence follows speed (a run's stride is longer, so fewer steps per metre)
+        const stride = (m.speeds.walk || 1) * (1 + (gain - 1) * A.run);
+        walk.timeScale = this.onGround ? dir * U.clamp(this.speedNow / stride, 0.6, 1.9 + 0.5 * A.run) : 0;
+        if (run) { run.timeScale = walk.timeScale; run.time = walk.time; }
+      }
+      // The mixer only rewrites a bone when its animated value changes, so undo last frame's
+      // procedural turns first or they would pile up.
+      const b = this.bones, rest = this._boneRest || (this._boneRest = {});
+      for (const k in b) if (b[k] && rest[k]) b[k].quaternion.copy(rest[k]);
+      m.mixer.update(dt);
+      for (const k in b) if (b[k]) (rest[k] || (rest[k] = new THREE.Quaternion())).copy(b[k].quaternion);
+      if (!b.root) return;
+      const UP = AXIS_UP, RIGHT = AXIS_RIGHT;
+      turnBone(b.root, UP, -A.legs, this.mesh);
+      if (b.spine) turnBone(b.spine, UP, A.legs * 0.5, this.mesh);
+      if (b.chest) turnBone(b.chest, UP, A.legs * 0.5, this.mesh);
+      if (b.spine) turnBone(b.spine, RIGHT, -0.18 * A.run * A.move, this.mesh); // lean into the run
+      if (b.chest) turnBone(b.chest, RIGHT, this.pitch * 0.8, this.mesh);       // aim up / down
     },
 
     toggleView() {
@@ -140,6 +259,7 @@
       if (I.down('KeyD')) r++;
       if (I.down('KeyA')) r--;
       const sprint = (I.down('ShiftLeft') || I.down('ShiftRight')) && f > 0;
+      this.sprinting = sprint;
       const spd = (sprint ? PC.sprint : PC.speed) * SK.Upgrades.speedMul();
       const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
       const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
@@ -166,10 +286,11 @@
       if (this.sinceHit > PC.regenDelay) this.hp = Math.min(this.maxHp, this.hp + PC.regenRate * dt);
 
       // third-person body animation
+      this.armR.rotation.x = Math.PI / 2 + this.pitch;
+      if (this.model) { this.animateModel(dt); return; }
       const swing = this.onGround ? Math.sin(this.walkPhase * 2) * 0.7 * Math.min(1, this.speedNow / 5) : 0.3;
       this.legL.rotation.x = swing;
       this.legR.rotation.x = -swing;
-      this.armR.rotation.x = Math.PI / 2 + this.pitch;
       this.armL.rotation.x = Math.PI / 2.4 + this.pitch;
       this.armL.rotation.z = -0.5;
     },

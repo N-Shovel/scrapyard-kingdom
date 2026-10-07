@@ -72,6 +72,17 @@
       }
     },
 
+    // Give a weapon a different look, e.g. the player model's own rifle. fp / tp: { g, muzzle }.
+    // tp.g is shown / hidden like the built-in third-person guns, wherever it is attached.
+    swapGun(name, fp, tp) {
+      this.fp[name].g.removeFromParent();
+      this.tp[name].g.removeFromParent();
+      fp.g.traverse((o) => { o.castShadow = false; o.receiveShadow = false; });
+      this.camera.add(fp.g);
+      this.fp[name] = fp;
+      this.tp[name] = tp;
+    },
+
     select(name) {
       if (this.current === name) return;
       this.current = name;

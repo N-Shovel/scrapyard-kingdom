@@ -6,8 +6,9 @@ A 3D action tower defense game in plain JavaScript, HTML and CSS, rendered with 
 
 ## Run it
 Play in the browser at the link above (hosted on GitHub Pages from the `main` branch), or run it locally:
-Double-click `index.html`. It needs an internet connection to load Three.js and the fonts.
-The VS Code **Live Server** extension also works.
+serve the folder over http, e.g. the VS Code **Live Server** extension, `npx serve`, or `python -m http.server`.
+It needs an internet connection to load Three.js and the fonts.
+Double-clicking `index.html` also runs, but browsers block loading `.glb` models from disk, so you get the built-in box models instead.
 
 ## How a round works
 1. **Preparation (top-down view, 3 minutes):** place gear from your inventory (or buy more with scrap), pick things up, repair, and refuel. Press **G** or click **READY** to start early.
@@ -57,7 +58,10 @@ The VS Code **Live Server** extension also works.
 ```
 index.html        page + HUD markup
 css/style.css     HUD / menu styling
-js/config.js      ALL balance numbers (round length, costs, HP, damage, speeds). Tweak here first
+assets/models/    Blender models (.glb): characters/ (player), later enemies/ and structures/
+assets/source/    original Blender exports (git-ignored, not shipped)
+js/config.js      ALL balance numbers (round length, costs, HP, damage, speeds) + the model list. Tweak here first
+js/assets.js      loads .glb models: scale, facing, walk-in-place clips, copies for each user
 js/grid.js        map generation, collision, flow-field pathfinding, gate routes, wall lock-on pathing
 js/inventory.js   gear you own but haven't placed
 js/upgrades.js    Base Workshop: upgrades, healing, medkits
@@ -75,3 +79,8 @@ js/effects.js     tracers, particles, health bars
 js/sfx.js         synthesized sound effects
 js/main.js        renderer, scene, game states, main loop
 ```
+
+## Adding a Blender model
+1. In Blender: File → Export → glTF 2.0 (`.glb`). Export only what you need (select the rig + meshes, tick *Selected Objects*), keep textures small (512–1024 px).
+2. Put it in `assets/models/<kind>/` and add an entry to `MODELS` in `js/config.js` (the `player` entry shows every option: which object to take, height, facing, hidden parts, which frames of which animation to use).
+3. Get a copy in code with `SK.Assets.instance('<key>')`, which returns `{ object, mixer, actions, speeds }`. Keep the box model as the fallback until it loads (see `useModel` in `js/player.js`).

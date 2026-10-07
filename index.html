@@ -151,25 +151,33 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/grid.js"></script>
-  <script src="js/effects.js"></script>
-  <script src="js/sfx.js"></script>
-  <script src="js/input.js"></script>
-  <script src="js/inventory.js"></script>
-  <script src="js/structures.js"></script>
-  <script src="js/enemies.js"></script>
-  <script src="js/pickups.js"></script>
-  <script src="js/player.js"></script>
-  <script src="js/weapons.js"></script>
-  <script src="js/build.js"></script>
-  <script src="js/topview.js"></script>
-  <script src="js/waves.js"></script>
-  <script src="js/minimap.js"></script>
-  <script src="js/upgrades.js"></script>
-  <script src="js/hud.js"></script>
-  <script src="js/main.js"></script>
+  <!-- Three.js + addons come in as ES modules; the game scripts are plain scripts that use the THREE global,
+       so the module below sets it up and then loads them in order. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+    window.THREE = THREE;
+    window.THREE_ADDONS = { GLTFLoader, SkeletonUtils };
+
+    const scripts = [
+      'config', 'utils', 'assets', 'grid', 'effects', 'sfx', 'input', 'inventory', 'structures', 'enemies',
+      'pickups', 'player', 'weapons', 'build', 'topview', 'waves', 'minimap', 'upgrades', 'hud', 'main'
+    ];
+    for (const name of scripts) {
+      const el = document.createElement('script');
+      el.src = `js/${name}.js`;
+      el.async = false; // run in list order
+      document.body.appendChild(el);
+    }
+  </script>
 </body>
 </html>
