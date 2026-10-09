@@ -33,6 +33,13 @@
     return { g, muzzle };
   }
 
+  // Recoil over time since a shot: snaps back in 50 ms, then settles with a small overshoot.
+  function recoilCurve(t) {
+    if (t < 0.05) return Math.sin(t / 0.05 * Math.PI / 2);
+    t -= 0.05;
+    return Math.exp(-t * 9) * Math.cos(t * 10);
+  }
+
   function gunMuzzle(rifle, def) {
     const muzzle = new THREE.Object3D();
     muzzle.position.set(...def.muzzle);
@@ -52,6 +59,7 @@
     alive: true,
     respawnTimer: 0,
     sinceHit: 99,
+    sinceShot: 99,
     view: 'fps',
     walkPhase: 0,
     speedNow: 0,
@@ -125,38 +133,67 @@
 
       const bone = (name) => m.object.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(name));
       const B = def.bones || {};
-      this.bones = { root: bone(B.root), spine: bone(B.spine), chest: bone(B.chest) };
+      this.bones = { root: bone(B.root), spine: bone(B.spine), chest: bone(B.chest), neck: bone(B.neck) };
       const gun = def.gun && bone(def.gun.node);
       if (gun) SK.Weapons.swapGun('shotgun', firstPersonGun(gun, def.gun), { g: gun, muzzle: gunMuzzle(gun, def.gun) });
 
       this.model = m;
-      this.anim = { move: 0, run: 0, legs: 0, dir: 1 };
+      this.anim = { move: 0, run: 0, legs: 0, dir: 1, aim: 0 };
       const { walk, idle, run } = m.actions;
       if (walk) walk.play().setEffectiveWeight(0);
       if (run) run.play().setEffectiveWeight(0);
       if (idle) idle.play();
       m.mixer.update(0);
+
+      // Where the carried rifle points in the idle pose: shooting turns her right by `turn`
+      // and tilts the barrel up by `lift` (radians) so it lines up with the aim.
+      if (gun) {
+        g.updateMatrixWorld(true);
+        const q = g.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(gun.getWorldQuaternion(new THREE.Quaternion()));
+        const d = new THREE.Vector3(...def.gun.forward).normalize().applyQuaternion(q);
+        this.stance = { turn: Math.atan2(-d.x, -d.z), lift: -Math.asin(U.clamp(d.y, -1, 1)) };
+      }
+    },
+
+    // Every shot: shoulder the rifle at once (re-posing now, so this shot already leaves the
+    // raised muzzle) and start the recoil kick.
+    recoil() {
+      this.sinceShot = 0;
+      if (!this.model) return;
+      this.anim.aim = 1;
+      this.animateModel(0);
     },
 
     // Model animation:
     //  - idle / walk / run blended by speed (run = the walk with its motion exaggerated, played faster)
     //  - the legs turn toward the direction we move (backwards = walk cycle reversed),
     //    while the upper body keeps facing the aim and the chest leans with the look pitch.
+    //  - shooting: she turns side-on and lifts the rifle onto the aim line, kicks with each shot,
+    //    and lowers it again a moment after the last one (at once to sprint).
     animateModel(dt) {
       const m = this.model, A = this.anim, { walk, idle, run } = m.actions;
+      const def = C.MODELS.player, aimDef = def.aim || {};
       const ease = (cur, target, rate) => cur + (target - cur) * Math.min(1, dt * rate);
 
-      // movement direction relative to where we face: 0 = forward, +-PI/2 = right / left, PI = back
+      const hold = this.sprinting ? 0.3 : aimDef.hold || 1.2;
+      A.aim = ease(A.aim, this.sinceShot < hold ? 1 : 0, 5);
+      const S = this.stance;
+      const turn = S ? S.turn * A.aim : 0;                            // upper body faces this far right
+      const lift = S ? S.lift * (aimDef.lift ?? 1) * A.aim : 0;
+      const kick = recoilCurve(this.sinceShot) * (aimDef.kick || 0);
+
+      // movement direction relative to where the upper body faces: 0 = forward, +-PI/2 = right / left, PI = back
       const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
       const vf = this.vel.x * fx + this.vel.z * fz;
       const vr = this.vel.x * -fz + this.vel.z * fx;
       const moving = this.onGround && this.speedNow > 0.4;
-      let legs = 0, dir = A.dir;
+      let legs = turn, dir = A.dir;
       if (moving) {
-        const ang = Math.atan2(vr, vf);
+        let ang = Math.atan2(vr, vf) - turn;
+        if (ang < -Math.PI) ang += Math.PI * 2;
         dir = Math.abs(ang) > 1.75 ? -1 : 1;
         legs = dir > 0 ? ang : ang - Math.PI * Math.sign(ang);
-        legs = U.clamp(legs, -1.3, 1.3);
+        legs = turn + U.clamp(legs, -1.3, 1.3);
       }
       A.dir = dir;
       A.legs = ease(A.legs, legs, 10);
@@ -179,13 +216,24 @@
       for (const k in b) if (b[k] && rest[k]) b[k].quaternion.copy(rest[k]);
       m.mixer.update(dt);
       for (const k in b) if (b[k]) (rest[k] || (rest[k] = new THREE.Quaternion())).copy(b[k].quaternion);
+      m.object.position.z = kick * 0.25; // the shot shoves her back a few centimetres
       if (!b.root) return;
       const UP = AXIS_UP, RIGHT = AXIS_RIGHT;
+      const twist = A.legs - turn; // upper body turns back from the legs to face its target
+      const lean = -0.18 * A.run * A.move, look = this.pitch * 0.8;
       turnBone(b.root, UP, -A.legs, this.mesh);
-      if (b.spine) turnBone(b.spine, UP, A.legs * 0.5, this.mesh);
-      if (b.chest) turnBone(b.chest, UP, A.legs * 0.5, this.mesh);
-      if (b.spine) turnBone(b.spine, RIGHT, -0.18 * A.run * A.move, this.mesh); // lean into the run
-      if (b.chest) turnBone(b.chest, RIGHT, this.pitch * 0.8, this.mesh);       // aim up / down
+      if (b.spine) turnBone(b.spine, UP, twist * 0.5, this.mesh);
+      if (b.chest) turnBone(b.chest, UP, twist * 0.5, this.mesh);
+      // tilting about the aim's right axis: with her side-on, this raises the barrel
+      if (b.spine) turnBone(b.spine, RIGHT, lean + (lift + kick) * 0.4, this.mesh); // lean into the run
+      if (b.chest) turnBone(b.chest, RIGHT, look + (lift + kick) * 0.6, this.mesh); // aim up / down
+      if (b.neck && (turn || lift || kick)) {
+        // keep her head level and looking at the target: undo the bend and most of the turn,
+        // then nod with the aim as before
+        turnBone(b.neck, RIGHT, -(lean + look + lift + kick), this.mesh);
+        turnBone(b.neck, UP, turn * 0.85, this.mesh);
+        turnBone(b.neck, RIGHT, lean + look + kick * 0.3, this.mesh);
+      }
     },
 
     toggleView() {
@@ -283,15 +331,17 @@
       this.walkPhase += this.speedNow * dt * 1.4;
 
       this.sinceHit += dt;
+      this.sinceShot += dt;
       if (this.sinceHit > PC.regenDelay) this.hp = Math.min(this.maxHp, this.hp + PC.regenRate * dt);
 
       // third-person body animation
-      this.armR.rotation.x = Math.PI / 2 + this.pitch;
+      const kick = recoilCurve(this.sinceShot) * 0.35;
+      this.armR.rotation.x = Math.PI / 2 + this.pitch + kick;
       if (this.model) { this.animateModel(dt); return; }
       const swing = this.onGround ? Math.sin(this.walkPhase * 2) * 0.7 * Math.min(1, this.speedNow / 5) : 0.3;
       this.legL.rotation.x = swing;
       this.legR.rotation.x = -swing;
-      this.armL.rotation.x = Math.PI / 2.4 + this.pitch;
+      this.armL.rotation.x = Math.PI / 2.4 + this.pitch + kick;
       this.armL.rotation.z = -0.5;
     },
 

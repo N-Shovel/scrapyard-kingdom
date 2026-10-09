@@ -64,8 +64,13 @@ SK.CONFIG = {
         run:  { clip: 'WangDada_Walk', from: 1, to: 25, root: 'root', additive: 'idle' } // no run clip yet: exaggerated walk
       },
       // procedural body motion (bone names from Blender)
-      bones: { root: 'root', spine: 'spine', chest: 'chest' },
+      bones: { root: 'root', spine: 'spine', chest: 'chest', neck: 'neck' },
       runGain: 1.7,     // how much the run exaggerates the walk's stride
+      // Shooting: the rifle is carried at low ready (pointing left and down), so to fire she turns side-on
+      // and bends the upper body to bring it onto the aim line (no arm bones to lift it with).
+      //   lift: share of the barrel's downward angle taken out (all of it leans her too far back)
+      //   hold: seconds she stays shouldered after a shot;  kick: recoil, radians of muzzle climb
+      aim: { lift: 0.75, hold: 1.2, kick: 0.16 },
       // the model's own rifle is used as the Scrap Shotgun (measured in the rifle's own coordinates)
       gun: { node: 'Rifle.002', muzzle: [0.49, -0.385, -0.056], forward: [0.812, -0.581, 0.054], up: [0.573, 0.811, 0.118] }
     }

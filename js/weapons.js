@@ -170,6 +170,7 @@
       this.cd = W.fireRate * SK.Upgrades.fireRateMul();
       this.kick = 1;
       P.pitch = Math.min(1.45, P.pitch + 0.035);
+      P.recoil(); // before reading the muzzle: in third person this raises the rifle
       SK.SFX.play('shotgun');
 
       const fwd = this.forward(this._d).clone();
